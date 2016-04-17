@@ -1,25 +1,128 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Course 5: Project 1"
+author: "Will Wright"
+date: "April 17, 2016"
+output: html_document
 ---
 
+##Loading and preprocessing the data
+Show any code that is needed to load the data and process/transform the data (if necessary) into a format suitable for your analysis
 
-## Loading and preprocessing the data
+My approach is to use the downloader package to retrieve the zip file so this 
+next bit of code checks to see if it's installed and installs it if not:
+```{r, echo=TRUE}
+if (length(setdiff("downloader", rownames(installed.packages()))) > 0) {
+        install.packages(setdiff("downloader", rownames(installed.packages())))  
+}
+require(downloader)
+```
+
+Next, we need to check to see if the project folder exists; if not, create it:
+```{r, echo=TRUE}
+if(!file.exists("./course5_project1")){dir.create("./course5_project1")}
+```
+
+Now we're set to download, unzip and read the file.  I also have a line to store
+the download date as a best practice:
+```{r, echo=TRUE}
+url <- "https://github.com/rdpeng/RepData_PeerAssessment1/raw/master/activity.zip"
+tmp <- tempfile(fileext = ".zip")
+download(url, tmp)
+unzip(tmp, exdir="./course5_project1")  
+dateDownloaded <- date()
+data <- read.table(file.path("./course5_project1", "activity.csv" ),sep=",",header = TRUE)
+```
+##What is mean total number of steps taken per day?
+Calculate the total number of steps taken per day
+```{r, echo=TRUE}
+steps_by_date <- split(data, data$date)
+total_steps <- sapply(steps_by_date, function(x){sum(x[, c("steps")])})
+date <- unique(data$date)
+total_steps_df <- data.frame(total_steps)
+```
+
+Make a histogram of the total number of steps taken each day
+```{r, echo=TRUE}
+hist(total_steps)
+```
+
+Calculate and report the mean and median of the total number of steps taken per day
+```{r, echo=TRUE}
+mean(na.omit(total_steps_df$total_steps))
+median(na.omit(total_steps_df$total_steps))
+```
+
+##What is the average daily activity pattern?
+Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) 
+and the average number of steps taken, averaged across all days (y-axis)
+```{r, echo=TRUE}
+fulldata <- na.omit(data)
+series <- data.frame(unique(data$interval))
+steps_by_interval <- split(fulldata, data$interval)
+interval_steps <- sapply(steps_by_interval, function(x){mean(x[, c("steps")])})
+interval_steps_df <- data.frame(interval_steps)
+interval_steps_df$interval <- row.names(interval_steps_df)
+plot(interval_steps_df$interval, interval_steps_df$interval_steps, type="l")
+```
+
+##Inputting missing values
+Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+```{r, echo=TRUE}
+table(is.na(data$steps))[2]
+```
+###Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r, echo=TRUE}
+for(i in 1:length(data$steps)){
+        if(is.na(data$steps[i])){
+                data$steps[i] <- interval_steps_df$interval_steps[interval_steps_df$interval==data$interval[i]]
+        }
+        
+}
+
+data_original <- read.table(file.path("./course5_project1", "activity.csv" ),sep=",",header = TRUE)
+```
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of inputting missing data on the estimates of the total daily number of steps?
+```{r, echo=TRUE}
+steps_by_date <- split(data, data$date)
+total_steps <- sapply(steps_by_date, function(x){sum(x[, c("steps")])})
+hist(total_steps)
+mean(na.omit(total_steps_df$total_steps)) #before: 10766.19
+median(na.omit(total_steps_df$total_steps)) #before: 10765
+```
+The mean and median are identical. The difference is that the distribution is taller in the middle since the NAs just take the average.
+
+##Are there differences in activity patterns between weekdays and weekends?
+
+Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+
+First check to see if the Chron package is installed and install it if not.  Then use is.weekend on the dates:
+```{r, echo=TRUE}
+if (length(setdiff("chron", rownames(installed.packages()))) > 0) {
+        install.packages(setdiff("chron", rownames(installed.packages())))  
+}
+require(chron)
+
+library(chron)
+data$isweekend <- is.weekend(data$date)
+```
+Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+```{r, echo=TRUE}
+fulldata <- na.omit(data)
+series <- data.frame(unique(data$interval))
+steps_by_interval <- split(fulldata, data$interval)
+interval_steps <- sapply(steps_by_interval, function(x){mean(x[, c("steps")])})
+interval_steps_df <- data.frame(interval_steps)
+interval_steps_df$interval <- row.names(interval_steps_df)
 
 
+fulldata_original <- na.omit(data_original)
+steps_by_interval_original <- split(fulldata_original, data$interval)
+interval_steps_original <- sapply(steps_by_interval_original, function(x){mean(x[, c("steps")])})
+interval_steps_original_df <- data.frame(interval_steps_original)
+interval_steps_original_df$interval <- row.names(interval_steps_original_df)
 
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+par(mfrow=c(2,1))
+plot(interval_steps_df$interval, interval_steps_df$interval_steps, type="l")
+plot(interval_steps_original_df$interval, interval_steps_original_df$interval_steps_original, type="l")
+```
